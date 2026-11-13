@@ -522,49 +522,305 @@
 
   <script>
     // =========================================================================
-    // 1. 企業往來廠商資料庫（模擬 ERP 內部往來與詢價群主檔）
+    // 3. 呼叫 Gemini API (支援自動模型備援與詳細錯誤診斷)
     // =========================================================================
-    const ENTERPRISE_VENDORS = [
-      { taxId: '96975726', name: '台灣日酸股份有限公司', isEnterprise: 'Y', inInquiryGroup: 'Y' },
-      { taxId: '05258865', name: '聯華林德氣體工業(股)公司', isEnterprise: 'Y', inInquiryGroup: 'Y' },
-      { taxId: '22522453', name: '亞東工業氣體股份有限公司', isEnterprise: 'Y', inInquiryGroup: 'N' },
-      { taxId: '22001577', name: '阿特拉斯科普柯股份有限公司', isEnterprise: 'Y', inInquiryGroup: 'Y' },
-      { taxId: '84703219', name: '台灣英格索蘭股份有限公司', isEnterprise: 'Y', inInquiryGroup: 'N' },
-      { taxId: '11880517', name: '台灣西門子股份有限公司', isEnterprise: 'Y', inInquiryGroup: 'Y' },
-      { taxId: '23225221', name: '台灣施耐德電機股份有限公司', isEnterprise: 'Y', inInquiryGroup: 'Y' },
-      { taxId: '04213582', name: '台灣橫河股份有限公司', isEnterprise: 'Y', inInquiryGroup: 'Y' },
-      { taxId: '84149738', name: '台灣三菱電機股份有限公司', isEnterprise: 'Y', inInquiryGroup: 'Y' },
-      { taxId: '23418912', name: '奇異亞洲醫療設備股份有限公司', isEnterprise: 'Y', inInquiryGroup: 'Y' }
-    ];
+    async function runAipSearch() {
+      const itemSpec = document.getElementById('inputItemSpec').value.trim();
+      if (!itemSpec) {
+        showBanner('error', '請先輸入<b>「品名規格」</b>（例如：混合氣體 BF3:85% H2:15% 氣體狀 525G/CA），再點擊 AIP 搜尋！');
+        document.getElementById('inputItemSpec').focus();
+        return;
+      }
 
-    // 系統狀態
-    let currentSuppliers = [];
-    let currentFormNo = generateFormNo();
+      const savedApiKey = (localStorage.getItem('gemini_api_key') || '').trim();
 
-    // 初始化
-    window.addEventListener('DOMContentLoaded', () => {
+      if (!savedApiKey) {
+        showBanner('info', '尚未設定 <b>Gemini API Key</b>！請點擊「設定 API Key」輸入您的金鑰以啟用即時聯網搜尋，或點此 <button onclick="runOfflineSimulatedSearch()" class="underline font-bold text-blue-800 hover:text-blue-950 ml-1">【使用免金鑰智慧模擬模式產生】</button>');
+        openApiKeyModal();
+        return;
+      }
+
+      hideBanner();
+      updateHeaderDisplay();
+      currentFormNo = generateFormNo();
       document.getElementById('displayFormNo').textContent = currentFormNo;
       document.getElementById('displaySearchDate').textContent = getTodayFormatted();
-      document.getElementById('vendorDbCount').textContent = ENTERPRISE_VENDORS.length;
-      renderVendorDbModalTable();
-      updateApiKeyStatusUI();
-      loadDraftFromLocal();
 
-      // 監聽輸入框即時更新表頭預覽
-      document.getElementById('inputMatNo').addEventListener('input', (e) => {
-        document.getElementById('displayMatNo').textContent = e.target.value.trim() || '尚未輸入';
-      });
-      document.getElementById('inputSpecNo').addEventListener('input', (e) => {
-        document.getElementById('displaySpecNo').textContent = e.target.value.trim() || '尚未輸入';
-      });
-      document.getElementById('inputItemSpec').addEventListener('input', (e) => {
-        document.getElementById('displayItemSpec').textContent = e.target.value.trim() || '請於上方輸入品名規格並點擊「AIP 搜尋主力商」';
-      });
-    });
+      const btn = document.getElementById('btnAipSearch');
+      const loadingBox = document.getElementById('loadingBox');
+      const loadingSub = document.getElementById('loadingSub');
 
-    function generateFormNo() {
-      const rand = Math.floor(100000 + Math.random() * 900000);
-      return `A611${rand}`;
+      btn.disabled = true;
+      btn.classList.add('opacity-60', 'cursor-not-allowed');
+      loadingBox.classList.remove('hidden');
+      loadingSub.textContent = '步驟 1/3：連線 AIP 全球商源搜尋引擎，檢索全球 3～5 家主力原廠與台灣授權代理商...';
+
+      const systemPrompt = `你現在是企業資材採購與全球商源開發專家。請根據使用者輸入的「首購設備品名規格」，搜尋真實的全球前 3～5 家主力供應商（原廠）及其台灣授權經銷商/代理商資訊。
+請嚴格只輸出合法的 JSON 物件（不要有多餘前言或結語），格式如下：
+{
+  "suppliers": [
+    {
+      "vendorName": "原廠中英文名稱",
+      "country": "國別(如:日本/美國/德國/台灣)",
+      "originTaxId": "若國別為台灣填8碼統編，非台灣請務必填寫'空白'",
+      "originPhone": "原廠聯絡電話",
+      "originEmail": "原廠聯絡信箱",
+      "originWeb": "原廠官網網址",
+      "twAgentName": "台灣授權經銷商、代理商或台灣分公司名稱(若無填'空白')",
+      "twTaxId": "台灣代理商真實8碼統一編號(若無填'空白')",
+      "twPhone": "台灣聯絡電話",
+      "twEmail": "台灣聯絡信箱",
+      "twWeb": "台灣官網網址",
+      "capital": "原廠或台灣代理商資本額/營收規模(40字內)",
+      "trackRecord": "全球或台灣知名企業/醫院採用實績(45字內)",
+      "productTech": "主力型號與核心技術優勢(45字內)",
+      "positioning": "市場定位(25字內)",
+      "refPrice": "市場預估參考售價區間(請折合NTD幣別並註明單位)"
+    }
+  ],
+  "summary": "調查總結(精要版)，280字以內，綜合分析技術差異、價格帶分布、交期與台灣售後服務能力，並給出採購詢價建議。"
+}`;
+
+      const userQuery = `請針對以下首購設備進行全球主力供應商與台灣代理商調查：【品名規格】：${itemSpec}`;
+
+      const payload = {
+        contents: [{ parts: [{ text: userQuery }] }],
+        tools: [{ google_search: {} }],
+        systemInstruction: {
+          parts: [{ text: systemPrompt }]
+        }
+      };
+
+      const candidateModels = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+
+      try {
+        setTimeout(() => {
+          if (!loadingBox.classList.contains('hidden')) {
+            loadingSub.textContent = '步驟 2/3：整理原廠技術規格、資本額實績與市場參考售價區間...';
+          }
+        }, 2200);
+
+        let responseData = null;
+        let lastError = null;
+
+        for (const modelName of candidateModels) {
+          try {
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(savedApiKey)}`;
+            responseData = await fetchWithBackoff(apiUrl, payload, 2);
+            if (responseData) break;
+          } catch (modelErr) {
+            lastError = modelErr;
+            // 若為金鑰無效或網路完全阻斷，不需再換模型重試
+            if (modelErr.status === 400 || modelErr.status === 403 || modelErr.isNetworkError) {
+              throw modelErr;
+            }
+          }
+        }
+
+        if (!responseData) {
+          throw lastError || new Error('無法取得 API 回應');
+        }
+
+        loadingSub.textContent = '步驟 3/3：比對 ERP 企業往來廠商資料庫並產生首購設備供應商調查表...';
+
+        const candidate = responseData?.candidates?.[0];
+        const parts = candidate?.content?.parts || [];
+        const rawText = parts.map(p => p.text || '').join('\n');
+
+        // 解析 JSON（相容有無 markdown 標記）
+        const jsonMatch = rawText.match(/```json\s*([\s\S]*?)\s*```/i) || rawText.match(/(\{[\s\S]*\})/);
+        if (!jsonMatch) {
+          throw new Error('AI 回傳內容非標準 JSON 格式，請重新點擊搜尋再試一次');
+        }
+
+        const cleanedJson = jsonMatch[1].replace(/,\s*([}\]])/g, '$1');
+        const parsed = JSON.parse(cleanedJson);
+        const suppliers = (parsed.suppliers || []).map(s => ({
+          ...s,
+          includeInInquiry: '', // 預設留空，強制請購經辦評估選擇 Y 或 N
+          excludeReason: ''
+        }));
+
+        // 擷取 Google Search Grounding 來源連結
+        const groundingMeta = candidate?.groundingMetadata || {};
+        const rawSources = groundingMeta.groundingChunks || groundingMeta.groundingAttributions || [];
+        const sourcesBox = document.getElementById('groundingSourcesBox');
+        const sourcesList = document.getElementById('groundingSourcesList');
+        const validSources = rawSources
+          .map(item => ({ uri: item.web?.uri, title: item.web?.title }))
+          .filter(s => s.uri && s.title);
+
+        if (validSources.length > 0) {
+          sourcesList.innerHTML = validSources.slice(0, 5).map(s =>
+            `<a href="${escapeHtml(s.uri)}" target="_blank" rel="noopener" class="underline text-blue-700 hover:text-blue-900">${escapeHtml(s.title)}</a>`
+          ).join(' · ');
+          sourcesBox.classList.remove('hidden');
+        } else {
+          sourcesBox.classList.add('hidden');
+        }
+
+        applySuppliersData(suppliers, parsed.summary || '');
+        showBanner('success', `AIP 搜尋完成！已自動產生調查表單號 <b>${currentFormNo}</b>，並完成企業往來廠商資料庫比對。請於下方黃底欄位逐一選擇「是否納入詢價(Y/N)」。`);
+      } catch (err) {
+        console.error('AIP Search Error:', err);
+        const detailMsg = escapeHtml(err.message || '未知錯誤');
+
+        if (err.status === 400 || err.status === 403 || detailMsg.includes('API key')) {
+          showBanner('error', `<b>API 金鑰無效或權限不足：</b>${detailMsg}。請重新確認您的 Gemini API Key，或點此 <button onclick="runOfflineSimulatedSearch()" class="underline font-bold text-blue-800 ml-1">【改用離線智慧模擬產生】</button>`);
+          openApiKeyModal();
+        } else if (err.status === 429) {
+          showBanner('error', `<b>API 免費額度已達上限 (HTTP 429)：</b>請稍候 1 分鐘再試，或點此 <button onclick="runOfflineSimulatedSearch()" class="underline font-bold text-blue-800 ml-1">【改用離線智慧模擬產生】</button>`);
+        } else if (err.isNetworkError || detailMsg.includes('Failed to fetch')) {
+          showBanner('error', `<b>無法連線至外部 AI 伺服器（可能受公司網路防火牆 / Proxy 阻擋）：</b>您可直接點擊 <button onclick="runOfflineSimulatedSearch()" class="px-2 py-0.5 rounded bg-blue-700 text-white font-bold ml-1 hover:bg-blue-800">使用離線智慧模擬產生此設備調查表</button> 繼續體驗完整作業流程！`);
+        } else {
+          showBanner('error', `<b>AIP 搜尋發生異常（${detailMsg}）：</b>請再點擊一次「AIP 搜尋主力商」重試，或點此 <button onclick="runOfflineSimulatedSearch()" class="underline font-bold text-blue-800 ml-1">【改用離線智慧模擬產生】</button>`);
+        }
+      } finally {
+        btn.disabled = false;
+        btn.classList.remove('opacity-60', 'cursor-not-allowed');
+        loadingBox.classList.add('hidden');
+      }
+    }
+
+    // 指數退避重試機制（並解析 Google API 具體錯誤訊息）
+    async function fetchWithBackoff(url, payload, maxRetries = 2) {
+      let delay = 1000;
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (!res.ok) {
+            let apiErrMsg = `HTTP ${res.status}`;
+            try {
+              const errJson = await res.json();
+              if (errJson?.error?.message) {
+                apiErrMsg = `HTTP ${res.status} - ${errJson.error.message}`;
+              }
+            } catch (_) {}
+            const httpErr = new Error(apiErrMsg);
+            httpErr.status = res.status;
+            // 400 / 403 / 404 不需重試
+            if ([400, 403, 404].includes(res.status)) {
+              throw httpErr;
+            }
+            throw httpErr;
+          }
+          return await res.json();
+        } catch (error) {
+          if (error instanceof TypeError) {
+            error.isNetworkError = true;
+            throw error;
+          }
+          if ([400, 403, 404].includes(error.status) || attempt === maxRetries) {
+            throw error;
+          }
+          await new Promise(r => setTimeout(r, delay));
+          delay *= 2;
+        }
+      }
+    }
+
+    // 離線智慧模擬搜尋（當處於公司防火牆內網無法連外或無 API Key 時使用）
+    function runOfflineSimulatedSearch() {
+      const itemSpec = document.getElementById('inputItemSpec').value.trim() || '工業用高精密自動控制閥門組 (DN100, SUS316L, 單位:ST)';
+      document.getElementById('inputItemSpec').value = itemSpec;
+      updateHeaderDisplay();
+      currentFormNo = generateFormNo();
+      document.getElementById('displayFormNo').textContent = currentFormNo;
+      document.getElementById('displaySearchDate').textContent = getTodayFormatted();
+      document.getElementById('groundingSourcesBox').classList.add('hidden');
+
+      const simulatedList = [
+        {
+          vendorName: 'Emerson Process (艾默生)',
+          country: '美國',
+          originTaxId: '空白',
+          originPhone: '+1-314-5532000',
+          originEmail: 'info@emerson.com',
+          originWeb: 'www.emerson.com',
+          twAgentName: '台灣艾默生過程控制(股)公司',
+          twTaxId: '23225221',
+          twPhone: '02-23259555',
+          twEmail: 'tw.sales@emerson.com',
+          twWeb: 'www.emerson.com/zh-tw',
+          capital: '原廠市值逾600億美元/台灣資本額1.5億',
+          trackRecord: '台塑麥寮園區、中油、長春石化主力供應商',
+          productTech: `專為「${itemSpec.slice(0, 18)}」設計之高耐蝕工業級方案`,
+          positioning: '歐美製程控制一線領導品牌',
+          refPrice: 'NTD 240萬～310萬/ST',
+          includeInInquiry: '',
+          excludeReason: ''
+        },
+        {
+          vendorName: 'Yokogawa Electric (橫河電機)',
+          country: '日本',
+          originTaxId: '空白',
+          originPhone: '+81-422-525555',
+          originEmail: 'info@yokogawa.com',
+          originWeb: 'www.yokogawa.com',
+          twAgentName: '台灣橫河股份有限公司',
+          twTaxId: '04213582',
+          twPhone: '02-25457218',
+          twEmail: 'sales@tw.yokogawa.com',
+          twWeb: 'www.yokogawa.com/tw',
+          capital: '原廠資本額434億日圓/台灣資本額1.2億',
+          trackRecord: '台灣各大石化廠、半導體晶圓廠廣泛採用',
+          productTech: '高穩定度日系精密控制系統(支援HART/FF通訊)',
+          positioning: '日系高可靠度工業自動化大廠',
+          refPrice: 'NTD 220萬～285萬/ST',
+          includeInInquiry: '',
+          excludeReason: ''
+        },
+        {
+          vendorName: 'Siemens AG (德國西門子)',
+          country: '德國',
+          originTaxId: '空白',
+          originPhone: '+49-89-63600',
+          originEmail: 'contact@siemens.com',
+          originWeb: 'www.siemens.com',
+          twAgentName: '台灣西門子股份有限公司',
+          twTaxId: '11880517',
+          twPhone: '02-26528888',
+          twEmail: 'industry.tw@siemens.com',
+          twWeb: 'www.siemens.com/tw',
+          capital: '原廠營收778億歐元/台灣資本額9.5億',
+          trackRecord: '全球大型化工、鋼鐵與公用設備廠實績',
+          productTech: '德系模組化高防護等級設計(符合ATEX防爆規範)',
+          positioning: '歐系工業4.0與重工設備龍頭',
+          refPrice: 'NTD 250萬～320萬/ST',
+          includeInInquiry: '',
+          excludeReason: ''
+        },
+        {
+          vendorName: 'Azbil Corporation (山武阿自倍爾)',
+          country: '日本',
+          originTaxId: '空白',
+          originPhone: '+81-3-68101000',
+          originEmail: 'info@azbil.com',
+          originWeb: 'www.azbil.com',
+          twAgentName: '台灣阿自倍爾股份有限公司',
+          twTaxId: '22661985',
+          twPhone: '02-25067888',
+          twEmail: 'tw-info@azbil.com',
+          twWeb: 'www.azbil.com/tw',
+          capital: '原廠資本額105億日圓/台灣資本額6,000萬',
+          trackRecord: '日本石化煉油廠、台灣電子與化工廠實績',
+          productTech: '高性價比日系標準型控制單元(交期較短)',
+          positioning: '日系中階高CP值主力品牌',
+          refPrice: 'NTD 185萬～230萬/ST',
+          includeInInquiry: '',
+          excludeReason: ''
+        }
+      ];
+
+      applySuppliersData(
+        simulatedList,
+        `本案「${itemSpec}」經系統彙整全球主力商源（艾默生、橫河電機、西門子及阿自倍爾），前3家在台灣皆設有直屬分公司與充足備品庫存，市場參考售價落於 NTD 220萬～320萬元/ST；日系阿自倍爾價格較具競爭力（約 NTD 185萬～230萬元/ST）。請請購經辦於黃底欄位逐一評估「是否納入詢價(Y/N)」。`
+      );
+      showBanner('success', `已透過<b>【離線智慧模擬模式】</b>產生「${escapeHtml(itemSpec)}」調查表（單號：<b>${currentFormNo}</b>），請於下方黃底欄位選擇 Y/N 繼續體驗！`);
     }
 
     function getTodayFormatted() {
