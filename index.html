@@ -1,0 +1,1694 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>首購設備供應商調查系統 — AIP 智慧選商與 OA 呈核平台</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+
+    body {
+      font-family: 'Inter', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif;
+      background-color: #f1f5f9;
+      color: #0f172a;
+    }
+
+    /* 規格書標準調查表格樣式 */
+    .spec-table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 2px solid #000000;
+      background-color: #ffffff;
+    }
+
+    .spec-table th,
+    .spec-table td {
+      border: 1px solid #000000;
+      padding: 8px 8px;
+      vertical-align: top;
+      line-height: 1.45;
+      color: #000000;
+    }
+
+    .spec-table th {
+      background-color: #f8fafc;
+      font-weight: 700;
+      text-align: left;
+      font-size: 13px;
+    }
+
+    /* 黃底紅字重點欄位（對齊系統規格書） */
+    .highlight-yellow-header {
+      background-color: #ffff00 !important;
+      color: #ff0000 !important;
+      font-weight: 800 !important;
+    }
+
+    .editable-cell:hover {
+      background-color: rgba(239, 246, 255, 0.7);
+      outline: 1px dashed #2563eb;
+    }
+
+    .editable-cell:focus {
+      background-color: #ffffff;
+      outline: 2px solid #1d4ed8;
+    }
+
+    /* 自訂捲軸 */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #e2e8f0;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #94a3b8;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #64748b;
+    }
+
+    @media print {
+      .no-print {
+        display: none !important;
+      }
+      body {
+        background: #ffffff !important;
+      }
+      .print-container {
+        box-shadow: none !important;
+        border: none !important;
+        padding: 0 !important;
+        max-width: 100% !important;
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- 頂部系統導覽列 -->
+  <header class="no-print bg-slate-900 text-white shadow-md sticky top-0 z-40">
+    <div class="max-w-[1440px] mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white text-lg font-bold shadow-inner">
+          <i class="fa-solid fa-magnifying-glass-chart"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-base sm:text-lg font-bold tracking-wide">首購設備供應商調查系統</h1>
+            <span class="hidden sm:inline-block px-2 py-0.5 text-[11px] font-semibold bg-blue-500/20 text-blue-200 border border-blue-400/30 rounded-full">
+              AIP 智慧選商 × OA 自動檢附
+            </span>
+          </div>
+          <p class="text-xs text-slate-400">ERP 非常備請購串接 AIP 全球主力商搜尋・自動比對往來資料庫・OA 呈核防呆管制</p>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2.5">
+        <button id="btnApiKeyStatus" onclick="openApiKeyModal()" class="px-3 py-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-xs font-bold text-amber-200 flex items-center gap-1.5 transition">
+          <span id="apiKeyDot" class="w-2 h-2 rounded-full bg-amber-400"></span>
+          <span id="apiKeyBtnLabel">設定 API Key (GitHub部署必備)</span>
+        </button>
+
+        <button onclick="saveDraftToLocal()" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-slate-200 flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-floppy-disk text-emerald-400"></i>
+          <span>暫存草稿</span>
+        </button>
+
+        <button onclick="openVendorDbModal()" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-slate-200 flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-database text-blue-400"></i>
+          <span>企業往來廠商資料庫 (<span id="vendorDbCount">10</span>筆)</span>
+        </button>
+
+        <button onclick="resetForm()" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-slate-200 flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-rotate-right text-amber-400"></i>
+          <span>清空重填</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 全域提示訊息條 (取代 alert) -->
+  <div id="globalBanner" class="no-print hidden max-w-[1440px] w-full mx-auto px-4 sm:px-6 pt-4">
+    <div id="globalBannerInner" class="rounded-xl p-3.5 border flex items-start justify-between gap-3 shadow-sm">
+      <div class="flex items-start gap-2.5">
+        <i id="globalBannerIcon" class="fa-solid fa-circle-info mt-0.5 text-base"></i>
+        <div id="globalBannerText" class="text-xs sm:text-sm font-medium leading-relaxed"></div>
+      </div>
+      <button onclick="hideBanner()" class="text-current opacity-60 hover:opacity-100 p-1">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- 主作業區 -->
+  <main class="flex-1 max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-5 space-y-5">
+
+    <!-- 步驟進度指示器 -->
+    <section class="no-print bg-white rounded-xl border border-slate-200 p-4 shadow-xs">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div id="stepCard1" class="flex items-center gap-3 p-3 rounded-lg bg-blue-50 border border-blue-200">
+          <div class="w-8 h-8 rounded-full bg-blue-700 text-white font-bold text-sm flex items-center justify-center shrink-0">1</div>
+          <div>
+            <div class="text-xs font-bold text-blue-900">輸入品名規格 & 啟動 AIP 搜尋</div>
+            <div class="text-[11px] text-blue-700">自動搜尋全球 3~5 家主力原廠與台灣代理商</div>
+          </div>
+        </div>
+
+        <div id="stepCard2" class="flex items-center gap-3 p-3 rounded-lg bg-slate-50 border border-slate-200 opacity-80">
+          <div id="stepBadge2" class="w-8 h-8 rounded-full bg-slate-400 text-white font-bold text-sm flex items-center justify-center shrink-0">2</div>
+          <div>
+            <div class="text-xs font-bold text-slate-800">請購經辦逐一評估 (Y/N)</div>
+            <div class="text-[11px] text-slate-500">選「N 不納入詢價」時，強制填寫原因說明</div>
+          </div>
+        </div>
+
+        <div id="stepCard3" class="flex items-center gap-3 p-3 rounded-lg bg-slate-50 border border-slate-200 opacity-80">
+          <div id="stepBadge3" class="w-8 h-8 rounded-full bg-slate-400 text-white font-bold text-sm flex items-center justify-center shrink-0">3</div>
+          <div>
+            <div class="text-xs font-bold text-slate-800">送出 OA 請購單呈核 / 匯出列印</div>
+            <div class="text-[11px] text-slate-500">OA 自動檢附調查表供主管、採購部及資審組審核</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 區塊一：ERP 請購料號與 AIP 搜尋輸入區 -->
+    <section class="no-print bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
+      <div class="flex flex-wrap items-center justify-between gap-2 pb-3 mb-4 border-b border-slate-100">
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-5 bg-blue-700 rounded-full"></span>
+          <h2 class="text-base font-bold text-slate-800">一、請購設備資料輸入與 AIP 全球主力商搜尋</h2>
+        </div>
+
+        <!-- 快速帶入測試案例 -->
+        <div class="flex flex-wrap items-center gap-1.5">
+          <span class="text-xs text-slate-500 font-medium">快速帶入測試案例：</span>
+          <button onclick="fillPresetCase('bf3')" class="px-2.5 py-1 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 text-xs font-semibold transition">
+            混合氣體 BF3:85% H2:15%
+          </button>
+          <button onclick="fillPresetCase('compressor')" class="px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs font-semibold transition">
+            高壓無油離心式空氣壓縮機
+          </button>
+          <button onclick="fillPresetCase('mri')" class="px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs font-semibold transition">
+            3.0T 磁振造影儀 (醫療設備)
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+        <div class="md:col-span-2">
+          <label class="block text-xs font-bold text-slate-700 mb-1">
+            材料編號 <span class="text-slate-400 font-normal">X(20)</span>
+          </label>
+          <input id="inputMatNo" type="text" maxlength="20" placeholder="例：4802159032"
+            class="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 font-mono">
+        </div>
+
+        <div class="md:col-span-2">
+          <label class="block text-xs font-bold text-slate-700 mb-1">
+            規格代號 <span class="text-slate-400 font-normal">X(30)</span>
+          </label>
+          <input id="inputSpecNo" type="text" maxlength="30" placeholder="例：0428091500"
+            class="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 font-mono">
+        </div>
+
+        <div class="md:col-span-5">
+          <label class="block text-xs font-bold text-slate-700 mb-1">
+            品名規格 <span class="text-red-600">*</span> <span class="text-slate-400 font-normal">X(240)（輸入後點擊 AIP 搜尋）</span>
+          </label>
+          <input id="inputItemSpec" type="text" maxlength="240" placeholder="請輸入首購設備之完整品名與規格..."
+            class="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 font-medium">
+        </div>
+
+        <div class="md:col-span-3 flex gap-2">
+          <button id="btnAipSearch" onclick="runAipSearch()" class="flex-1 px-4 py-2.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-sm font-bold flex items-center justify-center gap-2 shadow-sm transition cursor-pointer">
+            <i class="fa-solid fa-robot"></i>
+            <span>AIP 搜尋主力商</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 搜尋載入中進度動畫 -->
+      <div id="loadingBox" class="hidden mt-4 p-4 rounded-xl bg-blue-50/80 border border-blue-200 flex items-center gap-4">
+        <div class="w-9 h-9 rounded-full border-4 border-blue-200 border-t-blue-700 animate-spin shrink-0"></div>
+        <div class="flex-1">
+          <div id="loadingTitle" class="text-sm font-bold text-blue-900">正在透過 AIP 引擎檢索全球主力供應商與台灣授權代理商...</div>
+          <div id="loadingSub" class="text-xs text-blue-700 mt-0.5">步驟 1/3：搜尋全球原廠規格、資本額、實績與市場參考售價（NTD）</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 區塊二：首購設備供應商調查表主體（可編輯、自動比對、防呆檢核） -->
+    <section id="surveySection" class="print-container bg-white rounded-xl border border-slate-300 p-4 sm:p-6 shadow-sm">
+      
+      <!-- 頂部操作按鈕列 -->
+      <div class="no-print flex flex-wrap items-center justify-between gap-3 pb-4 mb-4 border-b border-slate-200">
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-5 bg-emerald-600 rounded-full"></span>
+          <h2 class="text-base font-bold text-slate-800">二、首購設備供應商調查表（請購經辦評估與呈核）</h2>
+          <span class="hidden lg:inline-block text-xs text-slate-500 ml-2">（提示：表格內白底文字皆可直接點擊微調，黃底欄位為請購必填）</span>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <button onclick="addEmptySupplierRow()" class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 text-xs font-bold flex items-center gap-1.5 transition">
+            <i class="fa-solid fa-plus text-blue-700"></i>
+            <span>手動新增廠商列</span>
+          </button>
+
+          <button onclick="downloadWordDoc()" class="px-3 py-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 text-xs font-bold flex items-center gap-1.5 transition">
+            <i class="fa-solid fa-file-word"></i>
+            <span>匯出 Word (.doc)</span>
+          </button>
+
+          <button onclick="downloadPngImage()" class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 text-xs font-bold flex items-center gap-1.5 transition">
+            <i class="fa-solid fa-image"></i>
+            <span>下載圖片 (.png)</span>
+          </button>
+
+          <button onclick="validateAndSubmitOA()" class="px-4 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs sm:text-sm font-bold flex items-center gap-2 shadow-sm transition ring-2 ring-emerald-600/20">
+            <i class="fa-solid fa-paper-plane"></i>
+            <span>檢核並送出 OA 請購單呈核</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 正式調查表單外框（列印與截圖區域） -->
+      <div id="printableSurveyArea" class="border-2 border-black p-4 bg-white text-black">
+        <div class="text-center text-xl font-bold tracking-widest mb-3">
+          首購設備供應商調查表
+        </div>
+
+        <!-- 表頭基本資料 -->
+        <div class="grid grid-cols-1 sm:grid-cols-12 gap-y-1.5 text-sm font-semibold mb-2">
+          <div class="sm:col-span-3">
+            材料編號：<span id="displayMatNo" class="font-mono font-bold text-slate-900">尚未輸入</span>
+          </div>
+          <div class="sm:col-span-3">
+            規格代號：<span id="displaySpecNo" class="font-mono font-bold text-slate-900">尚未輸入</span>
+          </div>
+          <div class="sm:col-span-6">
+            品名規格：<span id="displayItemSpec" class="font-bold text-blue-900">請於上方輸入品名規格並點擊「AIP 搜尋主力商」</span>
+          </div>
+          <div class="sm:col-span-3 flex items-center gap-2">
+            <span class="border border-black px-2 py-0.5 bg-slate-100 text-xs font-bold">AIP 搜尋</span>
+            <span>單號：<span id="displayFormNo" class="font-mono font-bold text-blue-800">A611000209</span></span>
+          </div>
+          <div class="sm:col-span-3">
+            搜尋日期：<span id="displaySearchDate" class="font-mono font-bold">2026/11/13</span>
+          </div>
+          <div class="sm:col-span-6 sm:text-right text-xs text-slate-600 self-end">
+            自動比對：ERP 企業往來廠商資料庫（依台灣代理商 8 碼統編勾稽）
+          </div>
+        </div>
+
+        <!-- 規格書雙虛線分隔線 -->
+        <div class="w-full border-t border-b border-dashed border-black h-[4px] my-2.5"></div>
+
+        <!-- 響應式水平捲動表格容器 -->
+        <div class="w-full overflow-x-auto">
+          <table class="spec-table min-w-[1180px] text-[13px]">
+            <thead>
+              <tr>
+                <th style="width: 3.5%; text-align: center;">項<br>次</th>
+                <th style="width: 11.5%;">供應商名稱/<br>國別/<br>統編</th>
+                <th style="width: 11.5%;">電話/<br>電子郵件/<br>網站</th>
+                <th style="width: 11.5%;">台灣授權經銷<br>商或代理商/<br>統編</th>
+                <th style="width: 11.5%;">電話/<br>電子郵件/<br>網站</th>
+                <th style="width: 12.5%;">資本額/<br>實績</th>
+                <th style="width: 14%;">產品及技術/<br>市場定位/<br>參考售價</th>
+                <th style="width: 8%;">企業供應<br>商/已納入<br>詢價群</th>
+                <th class="highlight-yellow-header" style="width: 6.5%; text-align: center;">是否納入<br>詢價(Y/N)</th>
+                <th class="highlight-yellow-header" style="width: 9.5%;">不納入詢<br>價之原因<br>說明</th>
+              </tr>
+            </thead>
+            <tbody id="supplierTableBody">
+              <!-- 初始空狀態引導列 -->
+              <tr>
+                <td colspan="10" class="py-12 text-center bg-slate-50/70">
+                  <div class="max-w-md mx-auto space-y-2">
+                    <div class="text-slate-400 text-3xl"><i class="fa-solid fa-magnifying-glass-plus"></i></div>
+                    <div class="text-sm font-bold text-slate-700">尚未產生供應商調查資料</div>
+                    <p class="text-xs text-slate-500">
+                      請於上方輸入「品名規格」後點擊 <b>【AIP 搜尋主力商】</b>，或直接點擊右上方的 <b>【快速帶入測試案例】</b> 體驗完整流程。
+                    </p>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 調查總結(精要版) -->
+        <div class="border-l border-r border-b border-black p-3 bg-slate-50">
+          <div class="flex items-center justify-between mb-1">
+            <label for="surveySummaryInput" class="text-xs font-bold text-black">
+              調查總結(精要版)：<span class="text-slate-500 font-normal">X(600)（綜合分析技術差異、價格帶、交期與台灣售後服務能力）</span>
+            </label>
+            <span id="summaryCharCount" class="no-print text-[11px] font-mono text-slate-500">0 / 300 字</span>
+          </div>
+          <textarea id="surveySummaryInput" rows="3" maxlength="300" oninput="updateSummaryCount()"
+            placeholder="AIP 搜尋完成後將自動產生調查總結，請購經辦亦可依實際需求補充說明..."
+            class="w-full bg-white border border-slate-300 rounded p-2 text-[13px] text-black leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-600"></textarea>
+        </div>
+
+        <!-- Grounding 搜尋來源引用區 (若使用即時搜尋時顯示) -->
+        <div id="groundingSourcesBox" class="no-print hidden mt-2.5 p-2.5 bg-blue-50/60 border border-blue-200 rounded text-xs text-slate-600">
+          <span class="font-bold text-blue-900"><i class="fa-solid fa-globe mr-1"></i>AIP 即時網路商源參考來源：</span>
+          <span id="groundingSourcesList" class="space-x-2"></span>
+        </div>
+      </div>
+
+      <!-- 底部填寫規範提醒 -->
+      <div class="no-print mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600 bg-amber-50/80 border border-amber-200 rounded-lg px-3.5 py-2.5">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-shield-halved text-amber-600"></i>
+          <span><b>系統防呆管制規則：</b>每一家搜尋出之主力供應商皆須選擇「是否納入詢價(Y/N)」；凡選擇 <b>「N (不納入)」</b> 者，<b>必須填寫具體「不納入詢價之原因說明」</b>，始得送出 OA 請購單供主管、採購部及資審組審核。</span>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==================== 彈窗 1：OA 請購單自動檢附與審核分流預覽 ==================== -->
+  <div id="oaSubmitModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden items-center justify-center z-50 p-4 overflow-y-auto">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl overflow-hidden my-auto">
+      <div class="bg-emerald-800 text-white px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <i class="fa-solid fa-circle-check text-xl text-emerald-300"></i>
+          <div>
+            <h3 class="text-base sm:text-lg font-bold">檢核通過！OA「請購單」已自動檢附首購設備供應商調查表</h3>
+            <p class="text-xs text-emerald-100">系統已依據「是否納入詢價」與「企業往來狀態」完成後續採購分流標記</p>
+          </div>
+        </div>
+        <button onclick="closeOaModal()" class="text-white/80 hover:text-white p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
+        <!-- OA 單據摘要資訊 -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
+          <div>
+            <span class="text-slate-500 block">OA 請購單呈核案號</span>
+            <span id="oaCaseNo" class="text-sm font-bold font-mono text-slate-900">OA-PR-20261113-084</span>
+          </div>
+          <div>
+            <span class="text-slate-500 block">檢附調查表單號</span>
+            <span id="oaAttachedFormNo" class="text-sm font-bold font-mono text-blue-700">A611000209</span>
+          </div>
+          <div>
+            <span class="text-slate-500 block">強制傳簽審核關卡</span>
+            <span class="text-sm font-bold text-amber-700">請購主管 ➔ 採購部 & 資審組</span>
+          </div>
+        </div>
+
+        <!-- 三大自動分流結果統計 -->
+        <div id="oaRoutingSummary" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <!-- 動態產生分流卡片 -->
+        </div>
+
+        <!-- 採購部 & 資審組審查重點提示 -->
+        <div class="bg-amber-50 border border-amber-300 rounded-xl p-4">
+          <h4 class="text-xs font-bold text-amber-900 mb-2 flex items-center gap-1.5">
+            <i class="fa-solid fa-gavel"></i>
+            <span>OA 傳簽至「採購部 & 資審組」之自動檢核摘要：</span>
+          </h4>
+          <ul id="oaAuditChecklist" class="text-xs text-amber-950 space-y-1.5 list-disc list-inside">
+            <!-- 動態產生審查重點 -->
+          </ul>
+        </div>
+      </div>
+
+      <div class="bg-slate-50 px-6 py-3.5 border-t border-slate-200 flex flex-wrap items-center justify-end gap-2.5">
+        <button onclick="downloadWordDoc()" class="px-4 py-2 rounded-lg bg-indigo-700 hover:bg-indigo-800 text-white text-xs font-bold flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-file-word"></i>
+          <span>下載附表 Word 檔</span>
+        </button>
+        <button onclick="closeOaModal()" class="px-5 py-2 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition">
+          確認並返回畫面
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 彈窗 2：企業往來廠商資料庫檢視器 ==================== -->
+  <div id="vendorDbModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl overflow-hidden">
+      <div class="bg-slate-800 text-white px-5 py-3.5 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-database text-blue-400"></i>
+          <h3 class="text-sm sm:text-base font-bold">ERP 企業往來廠商資料庫（系統自動比對基準）</h3>
+        </div>
+        <button onclick="closeVendorDbModal()" class="text-slate-300 hover:text-white p-1">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="p-5 max-h-[70vh] overflow-y-auto">
+        <p class="text-xs text-slate-600 mb-3">
+          當 AIP 搜尋出全球主力商及其台灣授權經銷商/代理商後，系統會自動以<b>「8 碼統一編號」</b>與<b>「廠商名稱」</b>比對本資料庫，自動帶出「企業供應商(Y/N)」與「已納入詢價群(Y/N)」：
+        </p>
+        <table class="w-full text-xs border-collapse border border-slate-300">
+          <thead>
+            <tr class="bg-slate-100 text-slate-800">
+              <th class="border border-slate-300 p-2 text-left">統一編號</th>
+              <th class="border border-slate-300 p-2 text-left">廠商名稱</th>
+              <th class="border border-slate-300 p-2 text-center">企業供應商</th>
+              <th class="border border-slate-300 p-2 text-center">已納入詢價群</th>
+            </tr>
+          </thead>
+          <tbody id="vendorDbTableBody"></tbody>
+        </table>
+      </div>
+      <div class="bg-slate-50 px-5 py-3 border-t border-slate-200 flex justify-end">
+        <button onclick="closeVendorDbModal()" class="px-4 py-1.5 rounded-lg bg-slate-800 text-white text-xs font-bold">關閉</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 彈窗 3：GitHub 部署 API 金鑰安全設定 ==================== -->
+  <div id="apiKeyModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden">
+      <div class="bg-slate-900 text-white px-5 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <i class="fa-solid fa-key text-amber-400"></i>
+          <h3 class="text-sm sm:text-base font-bold">AIP 搜尋引擎連線設定（GitHub Pages 安全模式）</h3>
+        </div>
+        <button onclick="closeApiKeyModal()" class="text-slate-300 hover:text-white p-1">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="p-5 space-y-4 text-xs text-slate-700">
+        <div class="p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 leading-relaxed">
+          <b><i class="fa-solid fa-shield-halved mr-1"></i>資安保護機制說明：</b><br>
+          為避免將專案上傳至 GitHub 時暴露私密金鑰，系統採用<b>「瀏覽器本機儲存 (LocalStorage)」</b>架構。您輸入的 Gemini API Key 僅會儲存在您個人電腦的瀏覽器中，絕不會上傳至 GitHub 程式碼庫。
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-800 mb-1.5">請輸入您的 Google Gemini API Key：</label>
+          <div class="flex gap-2">
+            <input id="inputApiKeyField" type="password" placeholder="AIzaSy..."
+              class="flex-1 px-3 py-2 text-sm border border-slate-300 rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-blue-600">
+            <button type="button" onclick="toggleApiKeyVisibility()" class="px-3 py-2 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50">
+              <i id="eyeIcon" class="fa-solid fa-eye"></i>
+            </button>
+          </div>
+          <p class="text-[11px] text-slate-500 mt-1.5">
+            尚未取得金鑰？可前往 <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener" class="text-blue-700 underline font-semibold">Google AI Studio</a> 免費申請一組 API Key；或直接關閉此視窗使用頁面上方的「快速帶入測試案例」。
+          </p>
+        </div>
+      </div>
+      <div class="bg-slate-50 px-5 py-3 border-t border-slate-200 flex items-center justify-between">
+        <button onclick="clearSavedApiKey()" class="px-3 py-1.5 rounded-lg text-red-600 hover:bg-red-50 text-xs font-semibold">
+          清除本機金鑰
+        </button>
+        <div class="flex gap-2">
+          <button onclick="closeApiKeyModal()" class="px-3.5 py-1.5 rounded-lg border border-slate-300 text-slate-700 text-xs font-semibold">
+            取消
+          </button>
+          <button onclick="saveApiKey()" class="px-4 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold">
+            儲存設定
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. 企業往來廠商資料庫（模擬 ERP 內部往來與詢價群主檔）
+    // =========================================================================
+    const ENTERPRISE_VENDORS = [
+      { taxId: '96975726', name: '台灣日酸股份有限公司', isEnterprise: 'Y', inInquiryGroup: 'Y' },
+      { taxId: '05258865', name: '聯華林德氣體工業(股)公司', isEnterprise: 'Y', inInquiryGroup: 'Y' },
+      { taxId: '22522453', name: '亞東工業氣體股份有限公司', isEnterprise: 'Y', inInquiryGroup: 'N' },
+      { taxId: '22001577', name: '阿特拉斯科普柯股份有限公司', isEnterprise: 'Y', inInquiryGroup: 'Y' },
+      { taxId: '84703219', name: '台灣英格索蘭股份有限公司', isEnterprise: 'Y', inInquiryGroup: 'N' },
+      { taxId: '11880517', name: '台灣西門子股份有限公司', isEnterprise: 'Y', inInquiryGroup: 'Y' },
+      { taxId: '23225221', name: '台灣施耐德電機股份有限公司', isEnterprise: 'Y', inInquiryGroup: 'Y' },
+      { taxId: '04213582', name: '台灣橫河股份有限公司', isEnterprise: 'Y', inInquiryGroup: 'Y' },
+      { taxId: '84149738', name: '台灣三菱電機股份有限公司', isEnterprise: 'Y', inInquiryGroup: 'Y' },
+      { taxId: '23418912', name: '奇異亞洲醫療設備股份有限公司', isEnterprise: 'Y', inInquiryGroup: 'Y' }
+    ];
+
+    // 系統狀態
+    let currentSuppliers = [];
+    let currentFormNo = generateFormNo();
+
+    // 初始化
+    window.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('displayFormNo').textContent = currentFormNo;
+      document.getElementById('displaySearchDate').textContent = getTodayFormatted();
+      document.getElementById('vendorDbCount').textContent = ENTERPRISE_VENDORS.length;
+      renderVendorDbModalTable();
+      updateApiKeyStatusUI();
+      loadDraftFromLocal();
+
+      // 監聽輸入框即時更新表頭預覽
+      document.getElementById('inputMatNo').addEventListener('input', (e) => {
+        document.getElementById('displayMatNo').textContent = e.target.value.trim() || '尚未輸入';
+      });
+      document.getElementById('inputSpecNo').addEventListener('input', (e) => {
+        document.getElementById('displaySpecNo').textContent = e.target.value.trim() || '尚未輸入';
+      });
+      document.getElementById('inputItemSpec').addEventListener('input', (e) => {
+        document.getElementById('displayItemSpec').textContent = e.target.value.trim() || '請於上方輸入品名規格並點擊「AIP 搜尋主力商」';
+      });
+    });
+
+    function generateFormNo() {
+      const rand = Math.floor(100000 + Math.random() * 900000);
+      return `A611${rand}`;
+    }
+
+    function getTodayFormatted() {
+      const d = new Date();
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}/${mm}/${dd}`;
+    }
+
+    // 自訂提示條 (取代 alert)
+    function showBanner(type, message) {
+      const banner = document.getElementById('globalBanner');
+      const inner = document.getElementById('globalBannerInner');
+      const icon = document.getElementById('globalBannerIcon');
+      const text = document.getElementById('globalBannerText');
+
+      banner.classList.remove('hidden');
+      text.innerHTML = message;
+
+      if (type === 'error') {
+        inner.className = 'rounded-xl p-3.5 border border-red-300 bg-red-50 text-red-900 flex items-start justify-between gap-3 shadow-sm';
+        icon.className = 'fa-solid fa-triangle-exclamation text-red-600 mt-0.5 text-base';
+      } else if (type === 'success') {
+        inner.className = 'rounded-xl p-3.5 border border-emerald-300 bg-emerald-50 text-emerald-900 flex items-start justify-between gap-3 shadow-sm';
+        icon.className = 'fa-solid fa-circle-check text-emerald-600 mt-0.5 text-base';
+      } else {
+        inner.className = 'rounded-xl p-3.5 border border-blue-300 bg-blue-50 text-blue-900 flex items-start justify-between gap-3 shadow-sm';
+        icon.className = 'fa-solid fa-circle-info text-blue-600 mt-0.5 text-base';
+      }
+    }
+
+    function hideBanner() {
+      document.getElementById('globalBanner').classList.add('hidden');
+    }
+
+    // 自動比對企業往來廠商資料庫
+    function checkEnterpriseVendorStatus(twVendorName, twTaxId) {
+      const cleanTax = (twTaxId || '').replace(/\D/g, '');
+      const cleanName = (twVendorName || '').trim();
+
+      const matched = ENTERPRISE_VENDORS.find(v =>
+        (cleanTax && v.taxId === cleanTax) ||
+        (cleanName && cleanName !== '空白' && (cleanName.includes(v.name.slice(0, 4)) || v.name.includes(cleanName.slice(0, 4))))
+      );
+
+      if (matched) {
+        return {
+          originStatus: 'N/N(原廠)',
+          twStatus: `${matched.isEnterprise}/${matched.inInquiryGroup}(台灣)`,
+          isEnterprise: matched.isEnterprise === 'Y',
+          inInquiryGroup: matched.inInquiryGroup === 'Y'
+        };
+      }
+      return {
+        originStatus: 'N/N(原廠)',
+        twStatus: 'N/N(台灣)',
+        isEnterprise: false,
+        inInquiryGroup: false
+      };
+    }
+
+    // =========================================================================
+    // 2. 快速帶入預設案例（支援離線/即時測試）
+    // =========================================================================
+    function fillPresetCase(caseType) {
+      hideBanner();
+      currentFormNo = generateFormNo();
+      document.getElementById('displayFormNo').textContent = currentFormNo;
+      document.getElementById('displaySearchDate').textContent = getTodayFormatted();
+      document.getElementById('groundingSourcesBox').classList.add('hidden');
+
+      if (caseType === 'bf3') {
+        document.getElementById('inputMatNo').value = '4802159032';
+        document.getElementById('inputSpecNo').value = '0428091500';
+        document.getElementById('inputItemSpec').value = '混合氣體 BF3:85% H2:15% 氣體狀 525G/CA';
+        updateHeaderDisplay();
+
+        const rawList = [
+          {
+            vendorName: '大陽日酸 (Nippon Sanso)',
+            country: '日本',
+            originTaxId: '空白',
+            originPhone: '+81-3-57888000',
+            originEmail: 'info@tn-sanso.co.jp',
+            originWeb: 'www.nipponsanso-hd.co.jp',
+            twAgentName: '台灣日酸股份有限公司',
+            twTaxId: '96975726',
+            twPhone: '03-5726588',
+            twEmail: 'sales@nstw.com.tw',
+            twWeb: 'www.nstw.com.tw',
+            capital: '原廠營收1.2兆日圓/台灣資本額3.4億',
+            trackRecord: '台積電、華邦電、台塑勝高等晶圓廠主力供應商',
+            productTech: '電子級5N高純度BF3:85%/H2:15%混氣及抗蝕鋼瓶',
+            positioning: '日系高純度半導體特氣領導商',
+            refPrice: 'NTD 40,000～56,000/CA',
+            includeInInquiry: 'Y',
+            excludeReason: ''
+          },
+          {
+            vendorName: 'Linde plc (林德集團)',
+            country: '英國',
+            originTaxId: '空白',
+            originPhone: '+44-1483-242200',
+            originEmail: 'contact@linde.com',
+            originWeb: 'www.linde.com',
+            twAgentName: '聯華林德氣體工業(股)公司',
+            twTaxId: '05258865',
+            twPhone: '02-27851688',
+            twEmail: 'csc.lg.tw@linde.com',
+            twWeb: 'www.linde-lienhwa.com.tw',
+            capital: '原廠市值逾2,000億美元/台灣資本額53億',
+            trackRecord: '台灣各大12吋晶圓代工廠、南亞科、台塑企業',
+            productTech: '超高純度BF3/H2精密混氣(525G/CA, 水氣<1ppm)',
+            positioning: '全球最大工業與電子特氣龍頭',
+            refPrice: 'NTD 42,000～58,000/CA',
+            includeInInquiry: 'Y',
+            excludeReason: ''
+          },
+          {
+            vendorName: 'Air Liquide (法國液化空氣)',
+            country: '法國',
+            originTaxId: '空白',
+            originPhone: '+33-1-40625555',
+            originEmail: 'contact.electronics@airliquide.com',
+            originWeb: 'www.airliquide.com',
+            twAgentName: '亞東工業氣體股份有限公司',
+            twTaxId: '22522453',
+            twPhone: '02-87518888',
+            twEmail: 'alfe.service@airliquide.com',
+            twWeb: 'www.airliquide.com/taiwan',
+            capital: '原廠營收270億歐元/台灣資本額41.1億',
+            trackRecord: '竹科、中科、南科晶圓大廠及光電廠特氣實績',
+            productTech: 'ALPHAGAZ電子級BF3(85%)/H2(15%)離子佈植混氣',
+            positioning: '歐系一線電子特氣領導大廠',
+            refPrice: 'NTD 42,000～60,000/CA',
+            includeInInquiry: 'Y',
+            excludeReason: ''
+          },
+          {
+            vendorName: 'Merck KGaA (德國默克)',
+            country: '德國',
+            originTaxId: '空白',
+            originPhone: '+49-6151-720',
+            originEmail: 'service@merckgroup.com',
+            originWeb: 'www.merckgroup.com',
+            twAgentName: '台灣默克股份有限公司',
+            twTaxId: '23526610',
+            twPhone: '02-21621111',
+            twEmail: 'electronics.tw@merckgroup.com',
+            twWeb: 'www.merckgroup.com/tw-zh',
+            capital: '原廠營收210億歐元/台灣資本額1億',
+            trackRecord: '併購Versum後為全球半導體摻雜與蝕刻特氣主力',
+            productTech: '超高純度三氟化硼/氫氣混合氣(525G/CA, 低微粒閥)',
+            positioning: '歐美高階半導體材料領導品牌',
+            refPrice: 'NTD 44,000～62,000/CA',
+            includeInInquiry: 'Y',
+            excludeReason: ''
+          },
+          {
+            vendorName: 'Entegris, Inc. (美商英特格)',
+            country: '美國',
+            originTaxId: '空白',
+            originPhone: '+1-978-4366500',
+            originEmail: 'custserv@entegris.com',
+            originWeb: 'www.entegris.com',
+            twAgentName: '新加坡商英特格(股)台灣分公司',
+            twTaxId: '23827974',
+            twPhone: '03-5710178',
+            twEmail: 'tw.support@entegris.com',
+            twWeb: 'www.entegris.com',
+            capital: '原廠年營收逾32億美元/深耕台灣竹科與南科',
+            trackRecord: '全球先進製程離子佈植氣體市佔第一',
+            productTech: 'SDS®/VAC®吸附式與低壓安全鋼瓶BF3/H2混氣',
+            positioning: '專利安全供氣系統高階品牌',
+            refPrice: 'NTD 55,000～75,000/CA',
+            includeInInquiry: 'N',
+            excludeReason: '該廠主力為SDS專利吸附式負壓鋼瓶，接頭規格與本案既有正壓氣體櫃(Gas Cabinet)CGA接頭不相容，故不納入詢價。'
+          }
+        ];
+
+        applySuppliersData(
+          rawList,
+          '本案「混合氣體 BF3:85% H2:15% 氣體狀 525G/CA」屬高毒性、強腐蝕性之電子級離子佈植特殊氣體，全球主力商源集中於大陽日酸、林德、液化空氣、德國默克及英特格。前4家在台皆具正壓鋼瓶(525G/CA)供貨實績，參考售價落於 NTD 40,000～62,000/CA；英特格則以SDS專利負壓吸附鋼瓶為主(接頭規格不同)。建議將前4家正壓鋼瓶主力廠商全數納入詢價。'
+        );
+      } else if (caseType === 'compressor') {
+        document.getElementById('inputMatNo').value = '4401928301';
+        document.getElementById('inputSpecNo').value = '0412058100';
+        document.getElementById('inputItemSpec').value = '高壓無油離心式空氣壓縮機 (風量150m³/min, 8kg/cm², 單位:ST)';
+        updateHeaderDisplay();
+
+        const rawList = [
+          {
+            vendorName: 'Atlas Copco (阿特拉斯)',
+            country: '瑞典',
+            originTaxId: '空白',
+            originPhone: '+46-8-7438000',
+            originEmail: 'info@atlascopco.com',
+            originWeb: 'www.atlascopco.com',
+            twAgentName: '阿特拉斯科普柯股份有限公司',
+            twTaxId: '22001577',
+            twPhone: '03-4799222',
+            twEmail: 'info.tw@atlascopco.com',
+            twWeb: 'www.atlascopco.com/tw',
+            capital: '原廠市值逾600億美元/台灣資本額1.2億',
+            trackRecord: '台積電、台塑石化、中油等大型廠區連續運轉實績',
+            productTech: 'ZH系列三段離心式無油壓縮機(鈦合金葉輪)',
+            positioning: '歐美一線領導品牌',
+            refPrice: 'NTD 650萬～780萬/ST',
+            includeInInquiry: 'Y',
+            excludeReason: ''
+          },
+          {
+            vendorName: 'Ingersoll Rand (英格索蘭)',
+            country: '美國',
+            originTaxId: '空白',
+            originPhone: '+1-704-6554000',
+            originEmail: 'contact@irco.com',
+            originWeb: 'www.ingersollrand.com',
+            twAgentName: '台灣英格索蘭股份有限公司',
+            twTaxId: '84703219',
+            twPhone: '02-27603988',
+            twEmail: 'tw.service@irco.com',
+            twWeb: 'www.ingersollrand.com',
+            capital: '原廠營收逾65億美元/台灣資本額8,000萬',
+            trackRecord: '長春石化、奇美實業、各大電子廠實績',
+            productTech: 'CENTAC系列離心式空壓機(內建後冷卻器)',
+            positioning: '歐美一線高穩定品牌',
+            refPrice: 'NTD 620萬～750萬/ST',
+            includeInInquiry: 'Y',
+            excludeReason: ''
+          },
+          {
+            vendorName: 'IHI (株式會社IHI)',
+            country: '日本',
+            originTaxId: '空白',
+            originPhone: '+81-3-62047111',
+            originEmail: 'webmaster@ihi.co.jp',
+            originWeb: 'www.ihi.co.jp',
+            twAgentName: '台灣艾石川島播磨重工(股)公司',
+            twTaxId: '27991042',
+            twPhone: '02-25457218',
+            twEmail: 'sales@ihi-tw.com.tw',
+            twWeb: 'www.ihi.co.jp/compressor',
+            capital: '原廠資本額1,071億日圓',
+            trackRecord: '日本各大石化廠、台灣塑化及鋼鐵廠實績',
+            productTech: 'Tx/TRA系列高速離心式壓縮機(三元流動葉輪)',
+            positioning: '日系高階精密低震動品牌',
+            refPrice: 'NTD 580萬～700萬/ST',
+            includeInInquiry: 'Y',
+            excludeReason: ''
+          },
+          {
+            vendorName: 'Hanwha Power Systems (韓華動力)',
+            country: '韓國',
+            originTaxId: '空白',
+            originPhone: '+82-31-80147114',
+            originEmail: 'hps.sales@hanwha.com',
+            originWeb: 'www.hanwhapower.com',
+            twAgentName: '宇辰機電工程股份有限公司',
+            twTaxId: '53108821',
+            twPhone: '07-3328199',
+            twEmail: 'service@yuchen-eng.com',
+            twWeb: 'www.yuchen-eng.com.tw',
+            capital: '隸屬韓國韓華集團/台灣代理資本額5,000萬',
+            trackRecord: '韓國麗水石化園區、東南亞石化廠',
+            productTech: 'SM系列無油離心式空壓機(IGV進氣導葉節能)',
+            positioning: '亞洲高性價比主力品牌',
+            refPrice: 'NTD 460萬～550萬/ST',
+            includeInInquiry: 'N',
+            excludeReason: '本案製程環境含微量腐蝕性氣體，該廠牌標準型中冷器材質未符本廠防蝕規範，故不納入詢價。'
+          }
+        ];
+
+        applySuppliersData(
+          rawList,
+          '本案「150 m³/min 高壓無油離心式空氣壓縮機」全球主力商源集中於歐美系（Atlas Copco、Ingersoll Rand）、日系（IHI）及韓系（Hanwha）。歐美與日系品牌在台灣皆設有直屬分公司及原廠維修能量，市場參考售價落於 NTD 580萬～780萬元/ST；韓系價格約低 15%～20%，惟中冷器防蝕材質未符製程需求。建議將前 3 家歐美日主力大廠一併納入詢價比價。'
+        );
+      } else if (caseType === 'mri') {
+        document.getElementById('inputMatNo').value = '4N08120045';
+        document.getElementById('inputSpecNo').value = '0C91042000';
+        document.getElementById('inputItemSpec').value = '3.0T 超導磁振造影掃描儀 (3.0T MRI System, 單位:ST)';
+        updateHeaderDisplay();
+
+        const rawList = [
+          {
+            vendorName: 'Siemens Healthineers (西門子醫療)',
+            country: '德國',
+            originTaxId: '空白',
+            originPhone: '+49-9131-840',
+            originEmail: 'contact.healthcare@siemens-healthineers.com',
+            originWeb: 'www.siemens-healthineers.com',
+            twAgentName: '台灣西門子股份有限公司',
+            twTaxId: '11880517',
+            twPhone: '02-26528888',
+            twEmail: 'healthcare.tw@siemens-healthineers.com',
+            twWeb: 'www.siemens-healthineers.com/tw',
+            capital: '原廠市值逾550億歐元/台灣資本額9.5億',
+            trackRecord: '林口長庚、台大醫院、台北榮總等醫學中心廣泛採用',
+            productTech: 'MAGNETOM Vida 3.0T (BioMatrix生命矩陣感應技術)',
+            positioning: '全球高階醫學影像領導品牌',
+            refPrice: 'NTD 6,800萬～8,500萬/ST',
+            includeInInquiry: 'Y',
+            excludeReason: ''
+          },
+          {
+            vendorName: 'GE HealthCare (奇異醫療)',
+            country: '美國',
+            originTaxId: '空白',
+            originPhone: '+1-800-4371171',
+            originEmail: 'info@gehealthcare.com',
+            originWeb: 'www.gehealthcare.com',
+            twAgentName: '奇異亞洲醫療設備股份有限公司',
+            twTaxId: '23418912',
+            twPhone: '02-21837000',
+            twEmail: 'tw.healthcare@ge.com',
+            twWeb: 'www.gehealthcare.com.tw',
+            capital: '原廠市值逾380億美元/台灣資本額2.5億',
+            trackRecord: '高雄長庚、台北榮總、三軍總醫院裝機實績',
+            productTech: 'SIGNA™ Premier 3.0T (AIR™ Recon DL 深度學習重建)',
+            positioning: '美系高階醫學影像領導品牌',
+            refPrice: 'NTD 6,500萬～8,200萬/ST',
+            includeInInquiry: 'Y',
+            excludeReason: ''
+          },
+          {
+            vendorName: 'Philips Healthcare (飛利浦醫療)',
+            country: '荷蘭',
+            originTaxId: '空白',
+            originPhone: '+31-40-2791111',
+            originEmail: 'healthcare@philips.com',
+            originWeb: 'www.philips.com/healthcare',
+            twAgentName: '台灣飛利浦股份有限公司',
+            twTaxId: '11767311',
+            twPhone: '02-37892888',
+            twEmail: 'philips.tw@philips.com',
+            twWeb: 'www.philips.com.tw/healthcare',
+            capital: '原廠營收180億歐元/台灣資本額6.8億',
+            trackRecord: '土城長庚、中國附醫、成大醫院裝機實績',
+            productTech: 'Ingenia Elition 3.0T X (無液態氦封閉式磁體技術)',
+            positioning: '歐系創新無液態氦MRI主力品牌',
+            refPrice: 'NTD 6,200萬～7,900萬/ST',
+            includeInInquiry: 'Y',
+            excludeReason: ''
+          }
+        ];
+
+        applySuppliersData(
+          rawList,
+          '本案「3.0T 超導磁振造影掃描儀」屬長庚醫療體系高階首購醫療設備，全球主力原廠為 GPS 三大品牌（Siemens、GE、Philips），在台皆設有直屬分公司與 24 小時駐點維修工程師團隊，市場參考售價落於 NTD 6,200萬～8,500萬元/ST。建議全數納入詢價比價。'
+        );
+      }
+    }
+
+    function updateHeaderDisplay() {
+      document.getElementById('displayMatNo').textContent = document.getElementById('inputMatNo').value.trim() || '尚未輸入';
+      document.getElementById('displaySpecNo').textContent = document.getElementById('inputSpecNo').value.trim() || '尚未輸入';
+      document.getElementById('displayItemSpec').textContent = document.getElementById('inputItemSpec').value.trim() || '尚未輸入';
+    }
+
+    // =========================================================================
+    // 3. 呼叫 Gemini API (gemini-3-flash-preview + Google Search Grounding)
+    // =========================================================================
+    async function runAipSearch() {
+      const itemSpec = document.getElementById('inputItemSpec').value.trim();
+      if (!itemSpec) {
+        showBanner('error', '請先輸入<b>「品名規格」</b>（例如：混合氣體 BF3:85% H2:15% 氣體狀 525G/CA），再點擊 AIP 搜尋！');
+        document.getElementById('inputItemSpec').focus();
+        return;
+      }
+
+      const savedApiKey = (localStorage.getItem('gemini_api_key') || '').trim();
+      const isStaticHost = window.location.hostname.includes('github.io') || window.location.protocol === 'file:';
+
+      if (!savedApiKey && isStaticHost) {
+        showBanner('info', '偵測到目前於 GitHub / 本機環境執行，請先設定您的 <b>Gemini API Key</b> 以啟用即時聯網搜尋，或直接點擊「快速帶入測試案例」體驗！');
+        openApiKeyModal();
+        return;
+      }
+
+      hideBanner();
+      updateHeaderDisplay();
+      currentFormNo = generateFormNo();
+      document.getElementById('displayFormNo').textContent = currentFormNo;
+      document.getElementById('displaySearchDate').textContent = getTodayFormatted();
+
+      const btn = document.getElementById('btnAipSearch');
+      const loadingBox = document.getElementById('loadingBox');
+      const loadingSub = document.getElementById('loadingSub');
+
+      btn.disabled = true;
+      btn.classList.add('opacity-60', 'cursor-not-allowed');
+      loadingBox.classList.remove('hidden');
+      loadingSub.textContent = '步驟 1/3：連線 AIP 全球商源搜尋引擎，檢索全球 3～5 家主力原廠與台灣授權代理商...';
+
+      const systemPrompt = `你現在是企業資材採購與全球商源開發專家。請根據使用者輸入的「首購設備品名規格」，透過 Google 搜尋真實的全球前 3～5 家主力供應商（原廠）及其台灣授權經銷商/代理商資訊。
+請嚴格輸出合法的 JSON 物件（用 \`\`\`json 與 \`\`\` 包覆），格式如下：
+{
+  "suppliers": [
+    {
+      "vendorName": "原廠中英文名稱",
+      "country": "國別(如:日本/美國/德國/台灣)",
+      "originTaxId": "若國別為台灣填8碼統編，非台灣請務必填寫'空白'",
+      "originPhone": "原廠聯絡電話",
+      "originEmail": "原廠聯絡信箱",
+      "originWeb": "原廠官網網址",
+      "twAgentName": "台灣授權經銷商、代理商或台灣分公司名稱(若無填'空白')",
+      "twTaxId": "台灣代理商真實8碼統一編號(若無填'空白')",
+      "twPhone": "台灣聯絡電話",
+      "twEmail": "台灣聯絡信箱",
+      "twWeb": "台灣官網網址",
+      "capital": "原廠或台灣代理商資本額/營收規模(40字內)",
+      "trackRecord": "全球或台灣知名企業/醫院採用實績(45字內)",
+      "productTech": "主力型號與核心技術優勢(45字內)",
+      "positioning": "市場定位(25字內)",
+      "refPrice": "市場預估參考售價區間(請折合NTD幣別並註明單位)"
+    }
+  ],
+  "summary": "調查總結(精要版)，280字以內，綜合分析技術差異、價格帶分布、交期與台灣售後服務能力，並給出採購詢價建議。"
+}`;
+
+      const userQuery = `請針對以下首購設備進行全球主力供應商與台灣代理商調查：【品名規格】：${itemSpec}`;
+      const apiKey = savedApiKey;
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+      const payload = {
+        contents: [{ parts: [{ text: userQuery }] }],
+        tools: [{ google_search: {} }],
+        systemInstruction: {
+          parts: [{ text: systemPrompt }]
+        }
+      };
+
+      try {
+        setTimeout(() => {
+          if (!loadingBox.classList.contains('hidden')) {
+            loadingSub.textContent = '步驟 2/3：整理原廠技術規格、資本額實績與市場參考售價區間...';
+          }
+        }, 2500);
+
+        const responseData = await fetchWithBackoff(apiUrl, payload);
+        loadingSub.textContent = '步驟 3/3：比對 ERP 企業往來廠商資料庫並產生首購設備供應商調查表...';
+
+        const candidate = responseData?.candidates?.[0];
+        const rawText = candidate?.content?.parts?.[0]?.text || '';
+
+        // 解析 JSON
+        const jsonMatch = rawText.match(/```json\s*([\s\S]*?)\s*```/i) || rawText.match(/(\{[\s\S]*\})/);
+        if (!jsonMatch) {
+          throw new Error('AI 回傳格式無法解析為 JSON');
+        }
+
+        const parsed = JSON.parse(jsonMatch[1]);
+        const suppliers = (parsed.suppliers || []).map(s => ({
+          ...s,
+          includeInInquiry: '', // 預設留空，強制請購經辦評估選擇 Y 或 N
+          excludeReason: ''
+        }));
+
+        // 擷取 Google Search Grounding 來源連結（相容 chunks 與 attributions 兩種回傳結構）
+        const groundingMeta = candidate?.groundingMetadata || {};
+        const rawSources = groundingMeta.groundingChunks || groundingMeta.groundingAttributions || [];
+        const sourcesBox = document.getElementById('groundingSourcesBox');
+        const sourcesList = document.getElementById('groundingSourcesList');
+        const validSources = rawSources
+          .map(item => ({ uri: item.web?.uri, title: item.web?.title }))
+          .filter(s => s.uri && s.title);
+
+        if (validSources.length > 0) {
+          sourcesList.innerHTML = validSources.slice(0, 5).map(s =>
+            `<a href="${escapeHtml(s.uri)}" target="_blank" rel="noopener" class="underline text-blue-700 hover:text-blue-900">${escapeHtml(s.title)}</a>`
+          ).join(' · ');
+          sourcesBox.classList.remove('hidden');
+        } else {
+          sourcesBox.classList.add('hidden');
+        }
+
+        applySuppliersData(suppliers, parsed.summary || '');
+        showBanner('success', `AIP 搜尋完成！已自動產生調查表單號 <b>${currentFormNo}</b>，並完成企業往來廠商資料庫比對。請於下方黃底欄位逐一選擇「是否納入詢價(Y/N)」。`);
+      } catch (err) {
+        console.error('AIP Search Error:', err);
+        if (String(err.message).includes('400') || String(err.message).includes('403')) {
+          showBanner('error', 'API 金鑰無效或尚未設定，請確認您的 Gemini API Key 是否正確，或先使用上方「快速帶入測試案例」。');
+          openApiKeyModal();
+        } else {
+          showBanner('error', 'AIP 搜尋連線忙碌或發生異常，請稍後再試，或先使用上方「快速帶入測試案例」進行操作體驗。');
+        }
+      } finally {
+        btn.disabled = false;
+        btn.classList.remove('opacity-60', 'cursor-not-allowed');
+        loadingBox.classList.add('hidden');
+      }
+    }
+
+    // 指數退避重試機制 (1s, 2s, 4s)
+    async function fetchWithBackoff(url, payload, maxRetries = 3) {
+      let delay = 1000;
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+          }
+          return await res.json();
+        } catch (error) {
+          if (attempt === maxRetries) throw error;
+          await new Promise(r => setTimeout(r, delay));
+          delay *= 2;
+        }
+      }
+    }
+
+    // =========================================================================
+    // 4. 渲染調查表格與請購經辦評估互動邏輯
+    // =========================================================================
+    function applySuppliersData(suppliers, summaryText) {
+      currentSuppliers = suppliers.map(s => {
+        const matchInfo = checkEnterpriseVendorStatus(s.twAgentName, s.twTaxId);
+        return {
+          ...s,
+          originStatus: matchInfo.originStatus,
+          twStatus: matchInfo.twStatus,
+          isEnterprise: matchInfo.isEnterprise,
+          inInquiryGroup: matchInfo.inInquiryGroup
+        };
+      });
+
+      const summaryInput = document.getElementById('surveySummaryInput');
+      summaryInput.value = summaryText;
+      updateSummaryCount();
+
+      // 更新步驟卡片狀態
+      document.getElementById('stepCard2').className = 'flex items-center gap-3 p-3 rounded-lg bg-amber-50 border border-amber-300';
+      document.getElementById('stepBadge2').className = 'w-8 h-8 rounded-full bg-amber-600 text-white font-bold text-sm flex items-center justify-center shrink-0';
+
+      renderSupplierRows();
+    }
+
+    function renderSupplierRows() {
+      const tbody = document.getElementById('supplierTableBody');
+      if (!currentSuppliers.length) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="10" class="py-10 text-center text-slate-500 text-xs">
+              目前無廠商資料，請點擊上方「AIP 搜尋主力商」或「手動新增廠商列」。
+            </td>
+          </tr>`;
+        return;
+      }
+
+      tbody.innerHTML = currentSuppliers.map((item, idx) => {
+        const isExclude = item.includeInInquiry === 'N';
+        const isInclude = item.includeInInquiry === 'Y';
+        const selectBg = isExclude
+          ? 'bg-red-50 text-red-700 border-red-400 font-bold'
+          : (isInclude ? 'bg-emerald-50 text-emerald-800 border-emerald-400 font-bold' : 'bg-yellow-50 text-slate-800 border-amber-400 font-semibold');
+
+        const reasonCellClass = isExclude
+          ? 'bg-red-50/60'
+          : 'bg-yellow-50/30';
+
+        const statusBadgeClass = item.isEnterprise ? 'text-blue-900 font-bold' : 'text-amber-700 font-bold';
+
+        return `
+          <tr id="supplierRow_${idx}" class="hover:bg-slate-50/60 transition">
+            <!-- 1. 項次 -->
+            <td class="text-center font-bold">
+              <div>${idx + 1}</div>
+              <button onclick="removeSupplierRow(${idx})" title="刪除此列" class="no-print mt-2 text-[11px] text-slate-400 hover:text-red-600">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            </td>
+
+            <!-- 2. 供應商名稱 / 國別 / 統編 -->
+            <td class="editable-cell" contenteditable="true" onblur="updateRowField(${idx}, 'vendorBlock', this.innerText)">
+              <div class="font-bold">${escapeHtml(item.vendorName)}</div>
+              <div>${escapeHtml(item.country)}</div>
+              <div class="text-slate-500 font-mono text-xs">${escapeHtml(item.originTaxId || '空白')}</div>
+            </td>
+
+            <!-- 3. 原廠電話 / Email / 網站 -->
+            <td class="editable-cell break-all text-xs" contenteditable="true" onblur="updateRowField(${idx}, 'originContact', this.innerText)">
+              <div>${escapeHtml(item.originPhone)}</div>
+              <div>${escapeHtml(item.originEmail)}</div>
+              <div class="text-blue-700">${escapeHtml(item.originWeb)}</div>
+            </td>
+
+            <!-- 4. 台灣授權經銷商或代理商 / 統編 -->
+            <td class="editable-cell" contenteditable="true" onblur="updateTwAgentBlock(${idx}, this.innerText)">
+              <div class="font-bold">${escapeHtml(item.twAgentName || '空白')}</div>
+              <div class="font-mono text-xs text-slate-700">${escapeHtml(item.twTaxId || '空白')}</div>
+            </td>
+
+            <!-- 5. 台灣代理商電話 / Email / 網站 -->
+            <td class="editable-cell break-all text-xs" contenteditable="true" onblur="updateRowField(${idx}, 'twContact', this.innerText)">
+              <div>${escapeHtml(item.twPhone || '空白')}</div>
+              <div>${escapeHtml(item.twEmail || '')}</div>
+              <div class="text-blue-700">${escapeHtml(item.twWeb || '')}</div>
+            </td>
+
+            <!-- 6. 資本額 / 實績 -->
+            <td class="editable-cell text-xs" contenteditable="true" onblur="updateRowField(${idx}, 'capitalTrack', this.innerText)">
+              <div>• ${escapeHtml(item.capital)}</div>
+              <div class="mt-1">• <b>實績：</b>${escapeHtml(item.trackRecord)}</div>
+            </td>
+
+            <!-- 7. 產品及技術 / 市場定位 / 參考售價 -->
+            <td class="editable-cell text-xs" contenteditable="true" onblur="updateRowField(${idx}, 'techPrice', this.innerText)">
+              <div>• ${escapeHtml(item.productTech)}</div>
+              <div class="mt-0.5">• ${escapeHtml(item.positioning)}</div>
+              <div class="mt-0.5 font-bold text-blue-900">• ${escapeHtml(item.refPrice)}</div>
+            </td>
+
+            <!-- 8. 企業供應商 / 已納入詢價群 -->
+            <td class="text-xs ${statusBadgeClass}">
+              <div>${escapeHtml(item.originStatus)}</div>
+              <div class="mt-0.5">${escapeHtml(item.twStatus)}</div>
+              <div class="no-print mt-1 text-[10px] font-normal px-1.5 py-0.5 rounded inline-block ${item.isEnterprise ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'}">
+                ${item.isEnterprise ? '已往來廠商' : '非往來廠商'}
+              </div>
+            </td>
+
+            <!-- 9. 是否納入詢價(Y/N) -->
+            <td class="bg-yellow-50/70 text-center">
+              <select id="selectInclude_${idx}" onchange="handleIncludeChange(${idx}, this.value)"
+                class="w-full px-1.5 py-1.5 text-xs rounded border ${selectBg} focus:outline-none focus:ring-2 focus:ring-blue-600 cursor-pointer">
+                <option value="" ${item.includeInInquiry === '' ? 'selected' : ''}>請選擇</option>
+                <option value="Y" ${item.includeInInquiry === 'Y' ? 'selected' : ''}>Y (納入)</option>
+                <option value="N" ${item.includeInInquiry === 'N' ? 'selected' : ''}>N (不納入)</option>
+              </select>
+            </td>
+
+            <!-- 10. 不納入詢價之原因說明 -->
+            <td class="${reasonCellClass}">
+              <textarea id="reasonInput_${idx}" rows="3" maxlength="300"
+                oninput="handleReasonInput(${idx}, this.value)"
+                placeholder="${isExclude ? '【必填】請輸入不納入詢價之具體原因說明...' : '若選 N (不納入) 則此欄必填...'}"
+                class="w-full p-1.5 text-xs rounded border ${isExclude && !item.excludeReason.trim() ? 'border-red-500 ring-2 ring-red-200 bg-white' : 'border-slate-300 bg-white'} focus:outline-none focus:ring-2 focus:ring-blue-600">${escapeHtml(item.excludeReason)}</textarea>
+              ${isExclude ? '<div class="no-print text-[10px] text-red-600 font-bold mt-0.5">* 採購部及資審組重點審查欄</div>' : ''}
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function handleIncludeChange(idx, val) {
+      currentSuppliers[idx].includeInInquiry = val;
+      renderSupplierRows();
+      if (val === 'N') {
+        setTimeout(() => {
+          document.getElementById(`reasonInput_${idx}`)?.focus();
+        }, 50);
+      }
+    }
+
+    function handleReasonInput(idx, val) {
+      currentSuppliers[idx].excludeReason = val;
+      const el = document.getElementById(`reasonInput_${idx}`);
+      if (el && currentSuppliers[idx].includeInInquiry === 'N') {
+        if (val.trim().length > 0) {
+          el.classList.remove('border-red-500', 'ring-2', 'ring-red-200');
+          el.classList.add('border-slate-300');
+        } else {
+          el.classList.add('border-red-500', 'ring-2', 'ring-red-200');
+        }
+      }
+    }
+
+    // 當使用者修改台灣代理商或統編時，自動重新比對企業往來廠商資料庫
+    function updateTwAgentBlock(idx, rawText) {
+      const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
+      const agentName = lines[0] || '空白';
+      const taxId = lines[1] || '空白';
+      currentSuppliers[idx].twAgentName = agentName;
+      currentSuppliers[idx].twTaxId = taxId;
+
+      const matchInfo = checkEnterpriseVendorStatus(agentName, taxId);
+      currentSuppliers[idx].originStatus = matchInfo.originStatus;
+      currentSuppliers[idx].twStatus = matchInfo.twStatus;
+      currentSuppliers[idx].isEnterprise = matchInfo.isEnterprise;
+      currentSuppliers[idx].inInquiryGroup = matchInfo.inInquiryGroup;
+      renderSupplierRows();
+    }
+
+    function updateRowField(idx, fieldGroup, rawText) {
+      const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
+      if (fieldGroup === 'vendorBlock') {
+        currentSuppliers[idx].vendorName = lines[0] || '';
+        currentSuppliers[idx].country = lines[1] || '';
+        currentSuppliers[idx].originTaxId = lines[2] || '空白';
+      } else if (fieldGroup === 'originContact') {
+        currentSuppliers[idx].originPhone = lines[0] || '';
+        currentSuppliers[idx].originEmail = lines[1] || '';
+        currentSuppliers[idx].originWeb = lines[2] || '';
+      } else if (fieldGroup === 'twContact') {
+        currentSuppliers[idx].twPhone = lines[0] || '';
+        currentSuppliers[idx].twEmail = lines[1] || '';
+        currentSuppliers[idx].twWeb = lines[2] || '';
+      }
+    }
+
+    function addEmptySupplierRow() {
+      currentSuppliers.push({
+        vendorName: '請輸入供應商名稱',
+        country: '台灣',
+        originTaxId: '空白',
+        originPhone: '02-00000000',
+        originEmail: 'sales@example.com',
+        originWeb: 'www.example.com',
+        twAgentName: '請輸入台灣代理商',
+        twTaxId: '空白',
+        twPhone: '02-00000000',
+        twEmail: 'tw@example.com',
+        twWeb: 'www.example.com.tw',
+        capital: '請輸入資本額',
+        trackRecord: '請輸入相關實績',
+        productTech: '請輸入主力產品型號',
+        positioning: '請輸入市場定位',
+        refPrice: 'NTD 0/ST',
+        originStatus: 'N/N(原廠)',
+        twStatus: 'N/N(台灣)',
+        isEnterprise: false,
+        inInquiryGroup: false,
+        includeInInquiry: 'Y',
+        excludeReason: ''
+      });
+      renderSupplierRows();
+    }
+
+    function removeSupplierRow(idx) {
+      currentSuppliers.splice(idx, 1);
+      renderSupplierRows();
+    }
+
+    function updateSummaryCount() {
+      const val = document.getElementById('surveySummaryInput').value || '';
+      document.getElementById('summaryCharCount').textContent = `${val.length} / 300 字`;
+    }
+
+    function resetForm() {
+      hideBanner();
+      document.getElementById('inputMatNo').value = '';
+      document.getElementById('inputSpecNo').value = '';
+      document.getElementById('inputItemSpec').value = '';
+      document.getElementById('displayMatNo').textContent = '尚未輸入';
+      document.getElementById('displaySpecNo').textContent = '尚未輸入';
+      document.getElementById('displayItemSpec').textContent = '請於上方輸入品名規格並點擊「AIP 搜尋主力商」';
+      currentFormNo = generateFormNo();
+      document.getElementById('displayFormNo').textContent = currentFormNo;
+      currentSuppliers = [];
+      document.getElementById('surveySummaryInput').value = '';
+      updateSummaryCount();
+      document.getElementById('groundingSourcesBox').classList.add('hidden');
+      document.getElementById('supplierTableBody').innerHTML = `
+        <tr>
+          <td colspan="10" class="py-12 text-center bg-slate-50/70">
+            <div class="max-w-md mx-auto space-y-2">
+              <div class="text-slate-400 text-3xl"><i class="fa-solid fa-magnifying-glass-plus"></i></div>
+              <div class="text-sm font-bold text-slate-700">已清空表單，請重新輸入品名規格</div>
+              <p class="text-xs text-slate-500">輸入後點擊 <b>【AIP 搜尋主力商】</b> 或使用上方測試案例。</p>
+            </div>
+          </td>
+        </tr>`;
+    }
+
+    // =========================================================================
+    // 5. 系統防呆檢核與送出 OA 請購單呈核預覽
+    // =========================================================================
+    function validateAndSubmitOA() {
+      hideBanner();
+
+      if (currentSuppliers.length === 0) {
+        showBanner('error', '目前調查表中無任何供應商資料，請先執行 <b>【AIP 搜尋主力商】</b> 或帶入測試案例！');
+        return;
+      }
+
+      // 逐列檢核防呆規則
+      for (let i = 0; i < currentSuppliers.length; i++) {
+        const s = currentSuppliers[i];
+        if (!s.includeInInquiry || (s.includeInInquiry !== 'Y' && s.includeInInquiry !== 'N')) {
+          showBanner('error', `【系統防呆攔截】項次 <b>${i + 1}（${escapeHtml(s.vendorName)}）</b> 尚未選擇「是否納入詢價 (Y/N)」，請選擇後再送出！`);
+          document.getElementById(`selectInclude_${i}`)?.focus();
+          return;
+        }
+
+        if (s.includeInInquiry === 'N' && (!s.excludeReason || s.excludeReason.trim().length < 4)) {
+          showBanner('error', `【系統防呆攔截】項次 <b>${i + 1}（${escapeHtml(s.vendorName)}）</b> 已選擇「N (不納入詢價)」，<b>必須填寫完整「不納入詢價之原因說明」</b>（至少 4 個字），始得送出 OA 呈核！`);
+          document.getElementById(`reasonInput_${i}`)?.focus();
+          return;
+        }
+      }
+
+      // 檢核通過，更新進度條至第 3 步
+      document.getElementById('stepCard3').className = 'flex items-center gap-3 p-3 rounded-lg bg-emerald-50 border border-emerald-300';
+      document.getElementById('stepBadge3').className = 'w-8 h-8 rounded-full bg-emerald-700 text-white font-bold text-sm flex items-center justify-center shrink-0';
+
+      // 分類計算下游分流結果
+      const mustInquireExisting = currentSuppliers.filter(s => s.includeInInquiry === 'Y' && s.isEnterprise);
+      const autoInviteNew = currentSuppliers.filter(s => s.includeInInquiry === 'Y' && !s.isEnterprise);
+      const excludedList = currentSuppliers.filter(s => s.includeInInquiry === 'N');
+
+      const todayStr = getTodayFormatted().replace(/\//g, '');
+      const randSeq = String(Math.floor(100 + Math.random() * 900));
+      document.getElementById('oaCaseNo').textContent = `OA-PR-${todayStr}-${randSeq}`;
+      document.getElementById('oaAttachedFormNo').textContent = currentFormNo;
+
+      document.getElementById('oaRoutingSummary').innerHTML = `
+        <div class="p-4 rounded-xl bg-emerald-50 border border-emerald-200">
+          <div class="text-xs font-bold text-emerald-800 mb-1 flex items-center justify-between">
+            <span>① 企業往來廠商（納入必詢）</span>
+            <span class="px-2 py-0.5 rounded-full bg-emerald-700 text-white">${mustInquireExisting.length} 家</span>
+          </div>
+          <p class="text-[11px] text-emerald-700 mb-2">OA 核准後直接加入詢價對象群並納入必詢：</p>
+          <ul class="text-xs font-semibold text-slate-800 space-y-1">
+            ${mustInquireExisting.length
+              ? mustInquireExisting.map(s => `<li>• ${escapeHtml(s.twAgentName !== '空白' ? s.twAgentName : s.vendorName)}</li>`).join('')
+              : '<li class="text-slate-400 font-normal">（無）</li>'}
+          </ul>
+        </div>
+
+        <div class="p-4 rounded-xl bg-blue-50 border border-blue-200">
+          <div class="text-xs font-bold text-blue-800 mb-1 flex items-center justify-between">
+            <span>② 非企業往來廠商（自動發函邀標）</span>
+            <span class="px-2 py-0.5 rounded-full bg-blue-700 text-white">${autoInviteNew.length} 家</span>
+          </div>
+          <p class="text-[11px] text-blue-700 mb-2">OA 核准後電腦自動發送廠商開發邀請函與詢價單：</p>
+          <ul class="text-xs font-semibold text-slate-800 space-y-1">
+            ${autoInviteNew.length
+              ? autoInviteNew.map(s => `<li>• ${escapeHtml(s.twAgentName !== '空白' ? s.twAgentName : s.vendorName)}</li>`).join('')
+              : '<li class="text-slate-400 font-normal">（無）</li>'}
+          </ul>
+        </div>
+
+        <div class="p-4 rounded-xl bg-red-50 border border-red-200">
+          <div class="text-xs font-bold text-red-800 mb-1 flex items-center justify-between">
+            <span>③ 不納入詢價（審查重點）</span>
+            <span class="px-2 py-0.5 rounded-full bg-red-600 text-white">${excludedList.length} 家</span>
+          </div>
+          <p class="text-[11px] text-red-700 mb-2">採購部與資審組將重點審查以下排除原因合理性：</p>
+          <ul class="text-xs font-semibold text-slate-800 space-y-1">
+            ${excludedList.length
+              ? excludedList.map(s => `<li>• ${escapeHtml(s.vendorName)}：<span class="font-normal text-red-800">${escapeHtml(s.excludeReason)}</span></li>`).join('')
+              : '<li class="text-emerald-700 font-normal">（全數主力商皆納入詢價）</li>'}
+          </ul>
+        </div>
+      `;
+
+      document.getElementById('oaAuditChecklist').innerHTML = `
+        <li>已自動檢附「首購設備供應商調查表（單號：<b>${currentFormNo}</b>）」，共彙整 <b>${currentSuppliers.length}</b> 家全球主力供應商。</li>
+        <li>本次共納入詢價 <b>${mustInquireExisting.length + autoInviteNew.length}</b> 家（含企業往來廠商 ${mustInquireExisting.length} 家、新開發邀標廠商 ${autoInviteNew.length} 家）。</li>
+        <li>不納入詢價共 <b>${excludedList.length}</b> 家，原因說明欄位皆已檢核填寫完整；若審核單位認定不合理，可於 OA 直接退回請購部門重新評估。</li>
+      `;
+
+      const modal = document.getElementById('oaSubmitModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeOaModal() {
+      const modal = document.getElementById('oaSubmitModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    // =========================================================================
+    // 6. 匯出 Word (.doc) 與 PNG 圖片功能
+    // =========================================================================
+    function downloadWordDoc() {
+      if (currentSuppliers.length === 0) {
+        showBanner('error', '目前無調查表資料可匯出，請先執行 AIP 搜尋或帶入案例。');
+        return;
+      }
+
+      const matNo = escapeHtml(document.getElementById('displayMatNo').textContent);
+      const specNo = escapeHtml(document.getElementById('displaySpecNo').textContent);
+      const itemSpec = escapeHtml(document.getElementById('displayItemSpec').textContent);
+      const formNo = escapeHtml(document.getElementById('displayFormNo').textContent);
+      const searchDate = escapeHtml(document.getElementById('displaySearchDate').textContent);
+      const summary = escapeHtml(document.getElementById('surveySummaryInput').value);
+
+      const rowsHtml = currentSuppliers.map((s, idx) => `
+        <tr>
+          <td style="text-align:center;font-weight:bold;">${idx + 1}</td>
+          <td><b>${escapeHtml(s.vendorName)}</b><br>${escapeHtml(s.country)}<br>${escapeHtml(s.originTaxId || '空白')}</td>
+          <td>${escapeHtml(s.originPhone)}<br>${escapeHtml(s.originEmail)}<br>${escapeHtml(s.originWeb)}</td>
+          <td><b>${escapeHtml(s.twAgentName || '空白')}</b><br>${escapeHtml(s.twTaxId || '空白')}</td>
+          <td>${escapeHtml(s.twPhone || '空白')}<br>${escapeHtml(s.twEmail || '')}<br>${escapeHtml(s.twWeb || '')}</td>
+          <td>• ${escapeHtml(s.capital)}<br>• 實績：${escapeHtml(s.trackRecord)}</td>
+          <td>• ${escapeHtml(s.productTech)}<br>• ${escapeHtml(s.positioning)}<br>• <b>${escapeHtml(s.refPrice)}</b></td>
+          <td>${escapeHtml(s.originStatus)}<br>${escapeHtml(s.twStatus)}</td>
+          <td style="text-align:center;font-weight:bold;${s.includeInInquiry === 'N' ? 'color:#ff0000;background-color:#ffff00;' : ''}">${escapeHtml(s.includeInInquiry || '待填')}</td>
+          <td style="${s.includeInInquiry === 'N' ? 'color:#ff0000;' : ''}">${escapeHtml(s.excludeReason)}</td>
+        </tr>
+      `).join('');
+
+      const wordHtml = `<html xmlns:o="urn:schemas-microsoft-com:office:office"
+        xmlns:w="urn:schemas-microsoft-com:office:word"
+        xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+        <title>首購設備供應商調查表_${formNo}</title>
+        <style>
+          @page WordSection1 {
+            size: 841.9pt 595.3pt;
+            mso-page-orientation: landscape;
+            margin: 24pt 24pt 24pt 24pt;
+          }
+          div.WordSection1 { page: WordSection1; }
+          body { font-family: '標楷體', 'DFKai-SB', serif; font-size: 9.5pt; }
+          table { width: 100%; border-collapse: collapse; border: 1.5pt solid #000000; }
+          th, td { border: 1pt solid #000000; padding: 4pt 5pt; vertical-align: top; }
+          th { background-color: #f1f5f9; font-weight: bold; }
+          .yellow-th { background-color: #ffff00; color: #ff0000; }
+        </style>
+      </head>
+      <body>
+        <div class="WordSection1">
+          <p align="center" style="font-size:15pt;font-weight:bold;margin:0 0 8pt 0;">首購設備供應商調查表</p>
+          <p style="margin:0 0 6pt 0;">
+            材料編號：${matNo} &nbsp;&nbsp;&nbsp; 規格代號：${specNo} &nbsp;&nbsp;&nbsp; 品名規格：<b>${itemSpec}</b><br>
+            單號：<b>${formNo}</b> &nbsp;&nbsp;&nbsp; 搜尋日期：${searchDate}
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th style="width:4%;text-align:center;">項次</th>
+                <th style="width:11%;">供應商名稱/<br>國別/<br>統編</th>
+                <th style="width:12%;">電話/<br>電子郵件/<br>網站</th>
+                <th style="width:11%;">台灣授權經銷商或代理商/<br>統編</th>
+                <th style="width:12%;">電話/<br>電子郵件/<br>網站</th>
+                <th style="width:12%;">資本額/<br>實績</th>
+                <th style="width:14%;">產品及技術/<br>市場定位/<br>參考售價</th>
+                <th style="width:8%;">企業供應商/<br>已納入詢價群</th>
+                <th class="yellow-th" style="width:6%;text-align:center;">是否納入詢價(Y/N)</th>
+                <th class="yellow-th" style="width:10%;">不納入詢價之原因說明</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+          <p style="border:1pt solid #000000;border-top:none;padding:6pt;margin:0;">
+            <b>調查總結(精要版)：</b>${summary}
+          </p>
+        </div>
+      </body>
+      </html>`;
+
+      const blob = new Blob(['\ufeff', wordHtml], { type: 'application/msword;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `首購設備供應商調查表_${formNo}.doc`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showBanner('success', `已匯出 Word 調查表檔案：<b>首購設備供應商調查表_${formNo}.doc</b>`);
+    }
+
+    async function downloadPngImage() {
+      if (currentSuppliers.length === 0) {
+        showBanner('error', '目前無調查表資料可匯出圖片。');
+        return;
+      }
+      const area = document.getElementById('printableSurveyArea');
+      showBanner('info', '正在產生高解析度調查表 PNG 圖片，請稍候...');
+      try {
+        const canvas = await html2canvas(area, {
+          scale: 2,
+          backgroundColor: '#ffffff',
+          useCORS: true
+        });
+        const link = document.createElement('a');
+        link.href = canvas.toDataURL('image/png');
+        link.download = `首購設備供應商調查表_${currentFormNo}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showBanner('success', `已下載高解析度 PNG 圖片：<b>首購設備供應商調查表_${currentFormNo}.png</b>`);
+      } catch (err) {
+        console.error(err);
+        showBanner('error', '圖片匯出失敗，請重試。');
+      }
+    }
+
+    // 企業往來資料庫彈窗控制
+    function renderVendorDbModalTable() {
+      const tbody = document.getElementById('vendorDbTableBody');
+      tbody.innerHTML = ENTERPRISE_VENDORS.map(v => `
+        <tr class="hover:bg-slate-50">
+          <td class="border border-slate-300 p-2 font-mono font-bold text-slate-800">${v.taxId}</td>
+          <td class="border border-slate-300 p-2 font-medium">${escapeHtml(v.name)}</td>
+          <td class="border border-slate-300 p-2 text-center font-bold ${v.isEnterprise === 'Y' ? 'text-emerald-700' : 'text-slate-400'}">${v.isEnterprise}</td>
+          <td class="border border-slate-300 p-2 text-center font-bold ${v.inInquiryGroup === 'Y' ? 'text-blue-700' : 'text-amber-600'}">${v.inInquiryGroup}</td>
+        </tr>
+      `).join('');
+    }
+
+    function openVendorDbModal() {
+      const modal = document.getElementById('vendorDbModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeVendorDbModal() {
+      const modal = document.getElementById('vendorDbModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    // =========================================================================
+    // 7. GitHub Pages API 金鑰管理與本機草稿暫存
+    // =========================================================================
+    function updateApiKeyStatusUI() {
+      const savedKey = (localStorage.getItem('gemini_api_key') || '').trim();
+      const btn = document.getElementById('btnApiKeyStatus');
+      const dot = document.getElementById('apiKeyDot');
+      const label = document.getElementById('apiKeyBtnLabel');
+      if (savedKey) {
+        btn.className = 'px-3 py-2 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-xs font-bold text-emerald-200 flex items-center gap-1.5 transition';
+        dot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+        label.textContent = 'API 金鑰已就緒';
+      } else {
+        btn.className = 'px-3 py-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-xs font-bold text-amber-200 flex items-center gap-1.5 transition';
+        dot.className = 'w-2 h-2 rounded-full bg-amber-400';
+        label.textContent = '設定 API Key (GitHub部署必備)';
+      }
+    }
+
+    function openApiKeyModal() {
+      document.getElementById('inputApiKeyField').value = localStorage.getItem('gemini_api_key') || '';
+      const modal = document.getElementById('apiKeyModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeApiKeyModal() {
+      const modal = document.getElementById('apiKeyModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function toggleApiKeyVisibility() {
+      const input = document.getElementById('inputApiKeyField');
+      const icon = document.getElementById('eyeIcon');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'fa-solid fa-eye-slash';
+      } else {
+        input.type = 'password';
+        icon.className = 'fa-solid fa-eye';
+      }
+    }
+
+    function saveApiKey() {
+      const val = document.getElementById('inputApiKeyField').value.trim();
+      if (!val) {
+        showBanner('error', '請輸入有效的 Gemini API Key，或點擊「取消」直接使用快速測試案例。');
+        return;
+      }
+      localStorage.setItem('gemini_api_key', val);
+      updateApiKeyStatusUI();
+      closeApiKeyModal();
+      showBanner('success', '已將 Gemini API Key 儲存於您的瀏覽器本機，現在可以輸入任意品名規格進行 AIP 搜尋！');
+    }
+
+    function clearSavedApiKey() {
+      localStorage.removeItem('gemini_api_key');
+      document.getElementById('inputApiKeyField').value = '';
+      updateApiKeyStatusUI();
+      closeApiKeyModal();
+      showBanner('info', '已清除本機儲存的 API Key。');
+    }
+
+    function saveDraftToLocal() {
+      const draft = {
+        matNo: document.getElementById('inputMatNo').value,
+        specNo: document.getElementById('inputSpecNo').value,
+        itemSpec: document.getElementById('inputItemSpec').value,
+        formNo: currentFormNo,
+        suppliers: currentSuppliers,
+        summary: document.getElementById('surveySummaryInput').value
+      };
+      localStorage.setItem('fpg_supplier_survey_draft', JSON.stringify(draft));
+      showBanner('success', `已將目前調查表（單號：<b>${currentFormNo}</b>）暫存於本機瀏覽器！`);
+    }
+
+    function loadDraftFromLocal() {
+      try {
+        const raw = localStorage.getItem('fpg_supplier_survey_draft');
+        if (!raw) return;
+        const draft = JSON.parse(raw);
+        if (draft && Array.isArray(draft.suppliers) && draft.suppliers.length > 0) {
+          document.getElementById('inputMatNo').value = draft.matNo || '';
+          document.getElementById('inputSpecNo').value = draft.specNo || '';
+          document.getElementById('inputItemSpec').value = draft.itemSpec || '';
+          updateHeaderDisplay();
+          if (draft.formNo) {
+            currentFormNo = draft.formNo;
+            document.getElementById('displayFormNo').textContent = currentFormNo;
+          }
+          currentSuppliers = draft.suppliers;
+          document.getElementById('surveySummaryInput').value = draft.summary || '';
+          updateSummaryCount();
+          renderSupplierRows();
+        }
+      } catch (e) {
+        // 忽略無效草稿
+      }
+    }
+  </script>
+</body>
+</html>
